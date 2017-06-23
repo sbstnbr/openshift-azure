@@ -1,0 +1,373 @@
+﻿{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "adminUsername": {
+      "type": "string",
+      "defaultValue": "william",
+      "minLength": 1,
+      "metadata": {
+        "description": "User name for the Virtual Machine and Openshift Webconsole."
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "User password for the Openshift Webconsole"
+      }
+    },
+    "sshKeyData": {
+      "type": "string",
+      "defaultValue": "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAgEA08i67MDl4MH+3ruimsW9XaqsNBKIJj0Eh3Its2z/PiFHcpS6OxEDHZvHsOQI8LqAKTiNAy+PAR4ASLz6xd77yWCLdltdoMdypPZ2sHE7vpr2nMbzBidtSugz/HuTL4p8AgXG5nsCVLUziEL6yGGHfBAyoRZpTZ1HY0bHhpQY+Qscp456VrKW9Oxe7Km8O718WzMuCt4xnTsarlumjKSdwl3JvROQ4UC/N7O0/nDeJQA+ihy0Z4b//6QQA7RGx3pApzFrjMHsJLUBZEeLn86kh+Kvk3A6RfINQ86Ae2llWjKfxfmAc73Lga3aH3dSevldo5ExtfB0fNiZAEipoBgRcQ18D4Jg2u78IobsSA8JlEN7THy5wvHElYX9YmN+sSLEd+T4K38OuHAZq2C2gB797nDa/I/dxhLJAe49xA38pCKwmX8mZP9Ub7YBxjR15V3NNFFRrmX8WIoPy2rUXC2gnX28BdQ3yE73WDHbcxRQ8Nsf8mINBJAdET0x9wAQMiOZio5HL99yBdyHTnyMxIhHKEW1dxRcgDP2DvpXgY3gzmS9MIP3SBg3je3ep5CauEGGB/58y1VcKRq/ek7kjjE50LqdXqbCUJbsPY5EAzxrkVOC4r+h3Djmceq5YNKc2nwGaJ65aQb2QxDMaPCOIAZdPmGxRz/1XpWbhk2cTp8eZD0= william@redhat.com",
+      "metadata": {
+        "description": "SSH rsa public key file as a string."
+      }
+    },
+    "masterDnsName": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "Globally unique DNS Name for the Openshift Master Webinterface."
+      }
+    },
+    "numberOfNodes": {
+      "type": "int",
+      "defaultValue": 3,
+      "minValue": 1,
+      "maxValue": 30,
+      "metadata": {
+        "description": "Number of Openshift Nodes to deploy (max 30)"
+      }
+    },
+    "image": {
+      "type": "string",
+      "allowedValues": [
+        "centos",
+        "rhel"
+      ],
+      "defaultValue": "rhel",
+      "metadata": {
+        "description": "OS to use. Centos or Redhat Enterprise Linux"
+      }
+    },
+    "rhnUser": {
+      "type": "string",
+      "defaultValue": "rhn-gls-hoffmann",
+      "metadata": {
+        "description": "RHN User ID"
+      }
+      },
+     "rhnPass": {
+      "type": "securestring",
+      "metadata": {
+        "description": "RHN Password"
+      }
+      },
+    "rhnPool": {
+      "type": "string",
+      "defaultValue": "8a85f9843affb61f013b52c86ce856d2",
+      "metadata": {
+        "description": "RHN pool ID"
+      }
+      }
+  },
+  "variables": {
+  "baseTemplateUrl": "https://raw.githubusercontent.com/lbroudoux/openshift-azure/rhel/ocp-3.5/",
+    "baseVMachineTemplateUriInfranode": "[concat(variables('baseTemplateUrl'), 'infranode.json')]",
+    "baseVMachineTemplateUriNode": "[concat(variables('baseTemplateUrl'), 'node.json')]",
+    "baseVMachineTemplateUriMaster": "[concat(variables('baseTemplateUrl'), 'master.json')]",
+    "location": "[resourceGroup().location]",
+    "virtualNetworkName": "openshiftVnet",
+    "addressPrefix": "10.0.0.0/16",
+    "infranodesubnetName": "infranodeSubnet",
+    "infranodesubnetPrefix": "10.0.2.0/24",
+    "nodesubnetName": "nodeSubnet",
+    "nodesubnetPrefix": "10.0.1.0/24",
+    "mastersubnetName": "masterSubnet",
+    "mastersubnetPrefix": "10.0.0.0/24",
+    "apiVersion": "2015-06-15",
+    "infranodeStorageName": "[concat(uniqueString(resourceGroup().id), 'infranodesa')]",
+    "nodeStorageName": "[concat(uniqueString(resourceGroup().id), 'nodesa')]",
+    "masterStorageName": "[concat(uniqueString(resourceGroup().id), 'mastersa')]",
+    "vhdStorageType": "Standard_LRS",
+    "infraVhdStorageType": "Premium_LRS",
+    "masterVhdStorageType": "Premium_LRS",
+    "vnetId": "[resourceId('Microsoft.Network/virtualNetworks', variables('virtualNetworkName'))]",
+    "infranodeSubnetRef": "[concat(variables('vnetId'), '/subnets/', variables('infranodesubnetName'))]",
+    "nodeSubnetRef": "[concat(variables('vnetId'), '/subnets/', variables('nodesubnetName'))]",
+    "masterSubnetRef": "[concat(variables('vnetId'), '/subnets/', variables('mastersubnetName'))]",
+    "infranodeVMSize": "Standard_DS3_v2",
+    "nodeVMSize": "Standard_D3_v2",
+    "masterVMSize": "Standard_DS3_v2",
+    "centos": {
+      "publisher": "Openlogic",
+      "offer": "CentOS",
+      "sku": "7.2",
+      "version": "latest"
+    },
+    "rhel": {
+      "publisher": "RedHat",
+      "offer": "RHEL",
+      "sku": "7.2",
+      "version": "latest"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "name": "[variables('infranodeStorageName')]",
+      "apiVersion": "[variables('apiVersion')]",
+      "location": "[variables('location')]",
+      "tags": {
+        "displayName": "StorageAccount"
+      },
+      "properties": {
+        "accountType": "[variables('infraVhdStorageType')]"
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "name": "[variables('nodeStorageName')]",
+      "apiVersion": "[variables('apiVersion')]",
+      "location": "[variables('location')]",
+      "tags": {
+        "displayName": "StorageAccount"
+      },
+      "properties": {
+        "accountType": "[variables('vhdStorageType')]"
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "name": "[variables('masterStorageName')]",
+      "apiVersion": "[variables('apiVersion')]",
+      "location": "[variables('location')]",
+      "tags": {
+        "displayName": "StorageAccount"
+      },
+      "properties": {
+        "accountType": "[variables('masterVhdStorageType')]"
+      }
+    },
+    {
+      "apiVersion": "[variables('apiVersion')]",
+      "type": "Microsoft.Network/virtualNetworks",
+      "name": "[variables('virtualNetworkName')]",
+      "location": "[variables('location')]",
+      "tags": {
+        "displayName": "VirtualNetwork"
+      },
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('addressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('infranodesubnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('infranodesubnetPrefix')]"
+            }
+          },
+          {
+            "name": "[variables('nodesubnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('nodesubnetPrefix')]"
+            }
+          },
+          {
+            "name": "[variables('mastersubnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('mastersubnetPrefix')]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[concat('nodeSet', copyindex())]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "copy": {
+        "name": "nodeSet",
+        "count": "[parameters('numberOfNodes')]"
+      },
+      "dependsOn": [
+        "[concat('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]",
+        "[concat('Microsoft.Storage/storageAccounts/', variables('nodeStorageName'))]"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('baseVMachineTemplateUriNode')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "vmName": {
+            "value": "[concat('node', padLeft(add(copyindex(), 1), 2, '0'))]"
+          },
+          "sa": {
+            "value": "[variables('nodeStorageName')]"
+          },
+          "subnetRef": {
+            "value": "[variables('nodeSubnetRef')]"
+          },
+          "vmSize": {
+            "value": "[variables('nodeVMSize')]"
+          },
+          "adminUsername": {
+            "value": "[parameters('adminUsername')]"
+          },
+          "sshKeyData": {
+            "value": "[parameters('sshKeyData')]"
+          },
+          "baseTemplateUrl": {
+            "value": "[variables('baseTemplateUrl')]"
+          },
+          "rhnUser": {
+            "value": "[parameters('rhnUser')]"
+          },
+          "rhnPass": {
+            "value": "[parameters('rhnPass')]"
+          },
+          "rhnPool": {
+            "value": "[parameters('rhnPool')]"
+          },
+          "imageReference": {
+            "value": "[variables(parameters('image'))]"
+          }
+        }
+      }
+    },
+    {
+      "name": "master",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "dependsOn": [
+        "[concat('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]",
+        "[concat('Microsoft.Storage/storageAccounts/', variables('masterStorageName'))]",
+        "[resourceId('Microsoft.Resources/deployments', 'infranode')]"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('baseVMachineTemplateUriMaster')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "vmName": {
+            "value": "master"
+          },
+          "dnsName": {
+            "value": "[parameters('masterDNSName')]"
+          },
+          "sa": {
+            "value": "[variables('masterStorageName')]"
+          },
+          "subnetRef": {
+            "value": "[variables('masterSubnetRef')]"
+          },
+          "vmSize": {
+            "value": "[variables('masterVMSize')]"
+          },
+          "adminUsername": {
+            "value": "[parameters('adminUsername')]"
+          },
+          "adminPassword": {
+            "value": "[parameters('adminPassword')]"
+          },
+          "sshKeyData": {
+            "value": "[parameters('sshKeyData')]"
+          },
+          "numberOfNodes": {
+            "value": "[parameters('numberOfNodes')]"
+          },
+          "baseTemplateUrl": {
+            "value": "[variables('baseTemplateUrl')]"
+          },
+          "rhnUser": {
+            "value": "[parameters('rhnUser')]"
+          },
+          "rhnPass": {
+            "value": "[parameters('rhnPass')]"
+          },
+          "rhnPool": {
+            "value": "[parameters('rhnPool')]"
+          },
+          "routerExtIP": {
+            "value": "[reference('infranode').outputs.pip.value]"
+          },
+          "imageReference": {
+            "value": "[variables(parameters('image'))]"
+          }
+        }
+      }
+    },
+    {
+      "name": "infranode",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2015-01-01",
+      "dependsOn": [
+        "[concat('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]",
+        "[concat('Microsoft.Storage/storageAccounts/', variables('infranodeStorageName'))]"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('baseVMachineTemplateUriInfranode')]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parameters": {
+          "vmName": {
+            "value": "infranode"
+          },
+          "sa": {
+            "value": "[variables('infranodeStorageName')]"
+          },
+          "subnetRef": {
+            "value": "[variables('infranodeSubnetRef')]"
+          },
+          "vmSize": {
+            "value": "[variables('infranodeVMSize')]"
+          },
+          "adminUsername": {
+            "value": "[parameters('adminUsername')]"
+          },
+          "sshKeyData": {
+            "value": "[parameters('sshKeyData')]"
+          },
+          "baseTemplateUrl": {
+            "value": "[variables('baseTemplateUrl')]"
+          },
+          "rhnUser": {
+            "value": "[parameters('rhnUser')]"
+          },
+          "rhnPass": {
+            "value": "[parameters('rhnPass')]"
+          },
+          "rhnPool": {
+            "value": "[parameters('rhnPool')]"
+          },
+          "imageReference": {
+            "value": "[variables(parameters('image'))]"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "Openshift Webconsole": {
+      "type": "string",
+      "value": "[concat('https://', reference('master').outputs.fqdn.value, ':8443')]"
+    },
+    "Openshift Master ssh": {
+      "type": "string",
+      "value": "[concat('ssh -A ', reference('master').outputs.pip.value)]"
+    },
+    "Openshift Router Public IP": {
+      "type": "string",
+      "value": "[reference('infranode').outputs.pip.value]"
+    }
+  }
+}

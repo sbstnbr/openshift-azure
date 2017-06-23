@@ -1,0 +1,33 @@
+﻿{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "adminUsername": {
+      "value": "william"
+    },
+    "adminPassword": {
+      "value": "redhat123"
+    },
+    "sshKeyData": {
+      "value": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDwWZmmrEVC7AIqJI9MgtiwDHbwzVVF+qPS4jiw1MLP9zpnZ8f0tRVxdzPOqik1kE5wGEOTHIlFNUt4HeKlXt6e0kuL6acoarxLgmNrLdtj4E/5jKY1muuvuHPyBJHgHvE0NqdxvT5AYgPX1kscKGsYXx0NAmoZYUQ2sEfNkTK8Ro360y3sce3Bc8vYoXtbV/Q3hnJ366n4O7xT0PHqmCtkt/OL0iCTJ6qsgxHAxxnFIJLBlkhCelTP4cqEeJMdEhfAayZtraEQ1kf/oCCYFEijPTV93cC5sUzkOQf5OISQh5D+mTwLJgpQ0z+Mayo7adojzmFkKGHquNnMuOW/hf+t"
+    },
+    "masterDnsName": {
+      "value": "plateforme1"
+    },
+    "numberOfNodes": {
+      "value": 3
+    },
+    "image": {
+      "value": "rhel"
+    },
+    "rhnUser": {
+      "value": "rhn-gls-hoffmann"
+    },
+    "rhnPass": {
+      "value": "changeme"
+    },
+    "rhnPool": {
+      "value": "8a85f9843affb61f013b52c86ce856d2"
+    }
+  }
+}
