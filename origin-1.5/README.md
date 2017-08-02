@@ -18,10 +18,10 @@ follow 2 steps.
 
 Click on Deploy to Azure then you will be redirected to your Azure account
 
-<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Flbroudoux%2Fopenshift-azure%2Frhel%2Focp-3.5%2Fazuredeploy.json" target="_blank">
+<a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fsbstnbr%2Fopenshift-azure%2Forigin-1.5%2Fazuredeploy.json" target="_blank">
     <img src="http://azuredeploy.net/deploybutton.png"/>
 </a>
-<a href="http://armviz.io/#/?load=https%3A%2F%2Fraw.githubusercontent.com%2Flbroudoux%2Fopenshift-azure%2Frhel%2Focp-3.5%2Fazuredeploy.json" target="_blank">
+<a href="http://armviz.io/#/?load=https%3A%2F%2Fraw.githubusercontent.com%2Fsbstnbr%2Fopenshift-azure%2Forigin-1.5%2Fazuredeploy.json" target="_blank">
     <img src="http://armviz.io/visualizebutton.png"/>
 </a>
 
