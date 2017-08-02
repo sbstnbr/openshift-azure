@@ -1,5 +1,5 @@
 #!/bin/bash
-# Last Modified : 2016-08-29
+# Last Modified : 2017-08-02
 
 USERNAME=$1
 PASSWORD=$2
@@ -11,21 +11,41 @@ rhn_pass=$7
 rhn_pool=$8
 
 
-subscription-manager register --username=${rhn_username} --password=${rhn_pass} --force
-subscription-manager attach --pool=${rhn_pool}
+# subscription-manager register --username=${rhn_username} --password=${rhn_pass} --force
+# subscription-manager attach --pool=${rhn_pool}
 
-subscription-manager repos --disable="*"
-subscription-manager repos --enable="rhel-7-server-rpms" --enable="rhel-7-server-extras-rpms" --enable="rhel-7-server-ose-3.5-rpms" --enable="rhel-7-fast-datapath-rpms"
+# subscription-manager repos --disable="*"
+# subscription-manager repos --enable="rhel-7-server-rpms" --enable="rhel-7-server-extras-rpms" --enable="rhel-7-server-ose-3.5-rpms" --enable="rhel-7-fast-datapath-rpms"
 
-sed -i -e 's/sslverify=1/sslverify=0/' /etc/yum.repos.d/rh-cloud.repo
-sed -i -e 's/sslverify=1/sslverify=0/' /etc/yum.repos.d/rhui-load-balancers
+# sed -i -e 's/sslverify=1/sslverify=0/' /etc/yum.repos.d/rh-cloud.repo
+# sed -i -e 's/sslverify=1/sslverify=0/' /etc/yum.repos.d/rhui-load-balancers
 
+# Install base packages
 yum -y install wget git net-tools bind-utils iptables-services bridge-utils bash-completion docker
 yum -y install atomic-openshift-utils
 yum -y update
 
+
+# Preparing for Advanced Installations
+
+## Install epel repo
+yum -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+sed -i -e "s/^enabled=1/enabled=0/" /etc/yum.repos.d/epel.repo
+yum -y --enablerepo=epel install ansible pyOpenSSL
+
+## Install openshift-ansible playbook
+cd ~
+git clone https://github.com/openshift/openshift-ansible
+cd openshift-ansible
+git checkout release-1.5
+
+
+# Configure Docker
+
+## Disable certificate for Docker registry
 sed -i '/OPTIONS=.*/c\OPTIONS="--selinux-enabled --insecure-registry 172.30.0.0/16"' /etc/sysconfig/docker
 
+## Configure Docker storage
 cat <<EOF > /etc/sysconfig/docker-storage-setup
 DEVS=/dev/sdc
 VG=docker-vg
@@ -35,11 +55,16 @@ docker-storage-setup
 systemctl enable docker
 systemctl start docker
 
+
+# Setup NFS 
 yum -y install nfs-utils rpcbind
 systemctl enable rpcbind
 systemctl start rpcbind
 setsebool -P virt_sandbox_use_nfs 1
 setsebool -P virt_use_nfs 1
+
+
+# Configure Ansible
 
 cat <<EOF > /etc/ansible/hosts
 [OSEv3:children]
@@ -82,12 +107,12 @@ osm_default_node_selector='region=primary'
 openshift_router_selector='region=infra'
 openshift_registry_selector='region=infra'
 
-# Confifgure router
+# Configure router
 # Force to 1 otherwise Ansible compute 2 replicas cause master and infranode are region=infra
 # but Ansible does not take into account that master is not schedulable. So it fails...
 openshift_hosted_router_replicas=1
 
-# Configure an internal regitry
+# Configure an internal registry
 openshift_hosted_registry_selector='region=infra'
 openshift_hosted_registry_replicas=1
 openshift_hosted_registry_storage_kind=nfs
@@ -138,7 +163,7 @@ EOF
 
 cat <<EOF > /home/${USERNAME}/openshift-install.sh
 export ANSIBLE_HOST_KEY_CHECKING=False
-ansible-playbook /usr/share/ansible/openshift-ansible/playbooks/byo/config.yml
+ansible-playbook ~/openshift-ansible/playbooks/byo/config.yml
 oc annotate namespace default openshift.io/node-selector='region=infra' --overwrite
 oadm policy add-cluster-role-to-user cluster-admin admin
 EOF
@@ -268,14 +293,14 @@ chmod 755 /home/${USERNAME}/create-pvs.sh
 
 cat <<EOF > /home/${USERNAME}/openshift-services-deploy.sh
 
-ansible-playbook /usr/share/ansible/openshift-ansible/playbooks/byo/openshift-cluster/openshift-metrics.yml \
+ansible-playbook ~/openshift-ansible/playbooks/byo/openshift-cluster/openshift-metrics.yml \
    -e openshift_metrics_install_metrics=True \
    -e openshift_metrics_hawkular_hostname=metrics.${ROUTEREXTIP}.nip.io \
    -e openshift_metrics_cassandra_storage_type=pv \
    -e openshift_metrics_cassandra_cpvc_size=5G
 
 
-ansible-playbook /usr/share/ansible/openshift-ansible/playbooks/byo/openshift-cluster/openshift-logging.yml \
+ansible-playbook ~/openshift-ansible/playbooks/byo/openshift-cluster/openshift-logging.yml \
   -e openshift_logging_install_logging=true \
   -e openshift_logging_namespace=logging \
   -e openshift_logging_use_ops=false \
