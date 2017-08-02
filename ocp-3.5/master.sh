@@ -54,7 +54,7 @@ deployment_type=openshift-enterprise
 
 openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider', 'filename': '/etc/origin/master/htpasswd'}]
 
-openshift_master_default_subdomain=${ROUTEREXTIP}.xip.io
+openshift_master_default_subdomain=${ROUTEREXTIP}.nip.io
 openshift_use_dnsmasq=False
 
 # Install the openshift examples
@@ -64,10 +64,10 @@ openshift_install_examples=true
 use_cluster_metrics=true
 
 # Configure metricsPublicURL in the master config for cluster metrics
-openshift_master_metrics_public_url=https://metrics.${ROUTEREXTIP}.xip.io/hawkular/metrics
+openshift_master_metrics_public_url=https://metrics.${ROUTEREXTIP}.nip.io/hawkular/metrics
 
 # Configure loggingPublicURL in the master config for aggregate logging
-openshift_master_logging_public_url=https://kibana.${ROUTEREXTIP}.xip.io
+openshift_master_logging_public_url=https://kibana.${ROUTEREXTIP}.nip.io
 
 # Defining htpasswd users (password is redhat123)
 openshift_master_htpasswd_users={'admin': '\$apr1\$bdqbl2eo\$Na6mZ6SG7Vfo3YPyp1vJP.', 'demo': '\$apr1\$ouJ9QtwY\$Z2WZ9yvm1.tNzipdR.4Wp1'}
@@ -99,9 +99,7 @@ openshift_hosted_registry_storage_volume_size=15Gi
 
 # Enable metrics
 openshift_metrics_install_metrics=true
-openshift_metrics_image_prefix=openshift/openshift-
-openshift_metrics_image_version=3.5.0
-openshift_metrics_hawkular_hostname=metrics.${ROUTEREXTIP}.xip.io
+openshift_metrics_hawkular_hostname=metrics.${ROUTEREXTIP}.nip.io
 openshift_metrics_storage_kind=nfs
 openshift_metrics_storage_access_modes=['ReadWriteOnce']
 openshift_metrics_storage_host=infranode
@@ -113,17 +111,14 @@ openshift_metrics_storage_volume_size=5Gi
 openshift_logging_install_logging=true
 openshift_logging_namespace=logging
 openshift_logging_use_ops=false
-openshift_logging_image_prefix=registry.access.redhat.com/openshift3/
-openshift_logging_image_version=v3.5
 openshift_logging_master_public_url=https://${HOSTNAME}:8443
 openshift_logging_es_cluster_size=1
 openshift_logging_es_pvc_size=5G
 openshift_logging_es_memory_limit=2G
-openshift_logging_es_nodeselector='region=infra'
-openshift_logging_kibana_hostname=https://kibana.${ROUTEREXTIP}.xip.io
-openshift_logging_kibana_nodeselector='region=infra'
-openshift_logging_curator_nodeselector='region=infra'
-openshift_logging_fluentd_nodeselector='region=primary'
+openshift_logging_es_nodeselector={"region":"infra"}
+openshift_logging_kibana_hostname=kibana.${ROUTEREXTIP}.nip.io
+openshift_logging_kibana_nodeselector={"region":"infra"}
+openshift_logging_curator_nodeselector={"region":"infra"}
 openshift_logging_storage_kind=nfs
 openshift_logging_storage_access_modes=['ReadWriteOnce']
 openshift_logging_storage_host=infranode
@@ -273,48 +268,22 @@ chmod 755 /home/${USERNAME}/create-pvs.sh
 
 cat <<EOF > /home/${USERNAME}/openshift-services-deploy.sh
 
-oc project openshift-infra
-oc annotate namespace openshift-infra openshift.io/node-selector='region=infra' --overwrite
-oc create -f - <<API
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: metrics-deployer
-secrets:
-- name: metrics-deployer
-API
-oc secrets new metrics-deployer nothing=/dev/null
-oadm policy add-role-to-user edit system:serviceaccount:openshift-infra:metrics-deployer
-oadm policy add-cluster-role-to-user cluster-reader system:serviceaccount:openshift-infra:heapster
-oc adm policy add-role-to-user view system:serviceaccount:openshift-infra:hawkular -n openshift-infra
+ansible-playbook /usr/share/ansible/openshift-ansible/playbooks/byo/openshift-cluster/openshift-metrics.yml \
+   -e openshift_metrics_install_metrics=True \
+   -e openshift_metrics_hawkular_hostname=metrics.${ROUTEREXTIP}.nip.io \
+   -e openshift_metrics_cassandra_storage_type=pv \
+   -e openshift_metrics_cassandra_cpvc_size=5G
 
-oc process metrics-deployer-template -n openshift \
-  -v HAWKULAR_METRICS_HOSTNAME=metrics.${ROUTEREXTIP}.xip.io \
-  -v IMAGE_VERSION=v3.4 -v IMAGE_PREFIX=registry.access.redhat.com/openshift3/ \
-  -v USE_PERSISTENT_STORAGE=true \
-  -v CASSANDRA_PV_SIZE=5Gi \
-  | oc create -f -
 
-oc project logging
-oc new-app logging-deployer-account-template
-oadm policy add-cluster-role-to-user oauth-editor system:serviceaccount:logging:logging-deployer
-oadm policy add-scc-to-user privileged system:serviceaccount:logging:aggregated-logging-fluentd
-oadm policy add-cluster-role-to-user cluster-reader system:serviceaccount:logging:aggregated-logging-fluentd
-oadm policy add-cluster-role-to-user rolebinding-reader system:serviceaccount:logging:aggregated-logging-elasticsearch
-
-oc process logging-deployer-template -n openshift \
-  -v KIBANA_HOSTNAME=kibana.${ROUTEREXTIP}.xip.io \
-  -v ES_CLUSTER_SIZE=1 \
-  -v ES_INSTANCE_RAM=2G \
-  -v ES_PVC_SIZE=5G \
-  -v ES_NODESELECTOR='region=infra' \
-  -v KIBANA_NODESELECTOR='region=infra' \
-  -v CURATOR_NODESELECTOR='region=infra' \
-  -v PUBLIC_MASTER_URL=https://${HOSTNAME}:8443 \
-  -v ENABLE_OPS_CLUSTER=false \
-  -v IMAGE_VERSION=v3.4 \
-  -v IMAGE_PREFIX=registry.access.redhat.com/openshift3/ \
-  | oc create -f -
+ansible-playbook /usr/share/ansible/openshift-ansible/playbooks/byo/openshift-cluster/openshift-logging.yml \
+  -e openshift_logging_install_logging=true \
+  -e openshift_logging_namespace=logging \
+  -e openshift_logging_use_ops=false \
+  -e openshift_logging_master_public_url=https://${HOSTNAME}:8443 \
+  -e openshift_logging_es_cluster_size=1 \
+  -e openshift_logging_es_pvc_size=5G \
+  -e openshift_logging_es_memory_limit=2G \
+  -e openshift_logging_kibana_hostname=kibana.${ROUTEREXTIP}.nip.io
 
 oc label nodes --selector='region=primary' logging-infra-fluentd=true
 EOF
