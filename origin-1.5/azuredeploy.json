@@ -72,7 +72,7 @@
       }
   },
   "variables": {
-  "baseTemplateUrl": "https://raw.githubusercontent.com/sbstnbr/openshift-azure/origin-1.5/",
+  "baseTemplateUrl": "https://raw.githubusercontent.com/sbstnbr/openshift-azure/rhel/origin-1.5/",
     "baseVMachineTemplateUriInfranode": "[concat(variables('baseTemplateUrl'), 'infranode.json')]",
     "baseVMachineTemplateUriNode": "[concat(variables('baseTemplateUrl'), 'node.json')]",
     "baseVMachineTemplateUriMaster": "[concat(variables('baseTemplateUrl'), 'master.json')]",
