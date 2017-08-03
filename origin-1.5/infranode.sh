@@ -20,7 +20,7 @@ yum -y install wget git net-tools bind-utils iptables-services bridge-utils bash
 yum -y install atomic-openshift-utils
 yum -y update
 
-s# Configure Docker
+# Configure Docker
 
 ## Disable certificate for Docker registry
 sed -i '/OPTIONS=.*/c\OPTIONS="--selinux-enabled --insecure-registry 172.30.0.0/16"' /etc/sysconfig/docker
